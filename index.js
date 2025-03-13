@@ -4,7 +4,7 @@ const cors = require('cors');
 app.use(cors());
 app.use(express.json());
 require('dotenv').config()
-
+const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5000;
 
 
@@ -25,7 +25,60 @@ async function run() {
       try {
             await client.connect();
 
-           
+            const userCollection = client.db('userbase').collection('users')
+
+            app.post('/jwt', async (req, res) => {
+                  const user = req.body;
+                  const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+                        expiresIn: '1hr'
+                  })
+                  res.send({ token })
+            })
+
+
+
+
+
+            app.put("/users", async (req, res) => {
+                  const user = req.body;
+                  //   console.log(user);
+                  const query = { email: user?.email };
+                  //   console.log(query);
+                  // Check if the user exists
+                  const isExist = await userCollection.findOne(query);
+                  if (isExist) {
+                        return res.send(isExist);
+                  } else {
+                        const options = { upsert: true };
+                        const updateDoc = {
+                              $set: {
+                                    ...user,
+                                    timestamp: Date.now(),
+                              },
+                        };
+                        const result = await userCollection.updateOne(
+                              query,
+                              updateDoc,
+                              options
+                        );
+                        res.send(result);
+                  }
+            });
+
+            app.get('/users/:email', async (req, res) => {
+                  const email = req.params.email;
+                  const query = { email }
+                  const result = await userCollection.findOne(query)
+                  res.send(result)
+            })
+
+            app.get('/users', async (req, res) => {
+                  const result = await userCollection.find().toArray();
+                  res.send(result)
+            })
+
+
+
 
             await client.db("admin").command({ ping: 1 });
             console.log("Mongodb Connected successfully!");
